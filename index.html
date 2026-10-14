@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f5">
+  <meta name="description" content="個人使用的客戶快捷回覆與聯絡資訊。依分頁查找，一鍵複製。">
+  <title>快捷回覆｜我的回覆工作台</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="分頁導覽">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">↗</div>
+        <div><strong>快捷回覆</strong><span>我的回覆工作台</span></div>
+      </div>
+      <div class="sidebar-content">
+        <div class="nav-group">
+          <div class="nav-heading">
+            <p class="nav-label">我的分頁</p>
+            <button id="edit-order" class="order-button" type="button">調整順序</button>
+          </div>
+          <nav id="section-nav" class="nav-list" aria-label="分頁"></nav>
+          <p class="nav-drag-tip">按住 ⠿ 可直接拖曳分頁</p>
+        </div>
+      </div>
+      <a class="source-link" id="source-link" href="#" target="_blank" rel="noopener noreferrer">開啟原始表格 <span aria-hidden="true">↗</span></a>
+    </aside>
+
+    <main class="main">
+      <div class="topline"><span class="status-dot"></span> 個人使用 · 快速查找與複製</div>
+      <header class="hero">
+        <div>
+          <p class="eyebrow">REPLY DESK</p>
+          <h1>找到適合的回覆，<br><em>一鍵複製。</em></h1>
+          <p class="hero-description">依照原本的分頁整理。選主題、搜尋情境，複製後再確認個案資訊即可傳送。</p>
+        </div>
+        <div class="hero-stats" aria-label="資料統計">
+          <strong id="total-replies">—</strong><span>則回覆範本</span>
+          <div class="stats-rule"></div>
+          <strong id="total-tabs">—</strong><span>個分頁</span>
+        </div>
+      </header>
+
+      <section class="workspace" aria-label="查找內容">
+        <div class="toolbar">
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.3 4.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span class="sr-only">搜尋情境或回覆內容</span>
+            <input id="search" type="search" placeholder="搜尋全部分頁的回覆或聯絡資訊…" autocomplete="off">
+            <kbd id="shortcut" class="shortcut">Ctrl K</kbd>
+          </label>
+        </div>
+        <div class="section-head">
+          <div>
+            <p class="section-kicker" id="section-kicker">回覆範本</p>
+            <div class="section-title-row"><h2 id="section-title">常用</h2><button id="pin-section" class="section-pin" type="button" hidden>↑ 分頁置頂</button></div>
+          </div>
+          <div class="section-actions">
+            <span class="result-count" id="result-count" aria-live="polite"></span>
+            <button id="edit-items" class="item-order-button" type="button">調整項目順序</button>
+          </div>
+        </div>
+        <div class="filters" id="filters" role="group" aria-label="對象篩選"></div>
+        <p id="item-drag-tip" class="item-drag-tip">按住項目上的 ⠿，拖到想要的位置後放開</p>
+        <div class="cards" id="cards" aria-live="polite"><div class="loading">正在載入回覆…</div></div>
+      </section>
+      <footer>目前顯示「新版回覆」表格的內容快照 · 修改表格後，網頁需重新更新</footer>
+    </main>
+  </div>
+  <div id="sort-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="sort-title" aria-describedby="sort-help">
+      <div class="dialog-head">
+        <div><p class="section-kicker">PERSONAL ORDER</p><h2 id="sort-title">調整分頁順序</h2></div>
+        <button id="close-order" class="dialog-close" type="button" aria-label="關閉">×</button>
+      </div>
+      <p id="sort-help" class="dialog-help">按住左側把手拖曳，或點「置頂」。順序只儲存在目前使用的瀏覽器。</p>
+      <div id="sort-list" class="sort-list" aria-label="拖曳排序項目"></div>
+      <div class="dialog-foot">
+        <button id="reset-order" class="reset-button" type="button">恢復原順序</button>
+        <button id="done-order" class="done-button" type="button">完成</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
