@@ -1,12 +1,16 @@
-const state = {data: null, section: "常用", audience: "全部", query: "", order: [], itemOrders: {}};
+const state = {data: null, baseData: null, customSections: [], replyChanges: {overrides: {}, added: []}, section: "常用", audience: "全部", query: "", order: [], itemOrders: {}};
 const $ = (id) => document.getElementById(id);
 const normalize = (value) => String(value || "").toLocaleLowerCase().replace(/\s+/g, "");
 const orderKey = "reply-desk-section-order-v1";
 const itemOrderKey = "reply-desk-item-order-v1";
+const replyChangesKey = "reply-desk-reply-changes-v1";
+const customSectionsKey = "reply-desk-custom-sections-v1";
 let toastTimer;
 let sortDrag = null;
 let inlineDrag = null;
 let sortMode = "sections";
+let replyDialogTrigger = null;
+let sectionDialogTrigger = null;
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -78,6 +82,186 @@ function getItemOrder(section) {
 function saveItemOrders() {
   try { localStorage.setItem(itemOrderKey, JSON.stringify(state.itemOrders)); }
   catch (_) { toast("瀏覽器未允許儲存排序，重新開啟後可能恢復原順序"); }
+}
+
+function loadReplyChanges() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(replyChangesKey) || "{}");
+    if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+      return {
+        overrides: saved.overrides && typeof saved.overrides === "object" && !Array.isArray(saved.overrides) ? saved.overrides : {},
+        added: Array.isArray(saved.added) ? saved.added : []
+      };
+    }
+  } catch (_) { /* Invalid saved data falls back to the source content. */ }
+  return {overrides: {}, added: []};
+}
+
+function loadCustomSections() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(customSectionsKey) || "[]");
+    if (!Array.isArray(saved)) return [];
+    const used = new Set(state.baseData.sections.map((section) => normalize(section.name)));
+    return saved.filter((value) => {
+      if (typeof value !== "string" || !value.trim() || value.length > 40 || used.has(normalize(value))) return false;
+      used.add(normalize(value));
+      return true;
+    });
+  } catch (_) { return []; }
+}
+
+function applyReplyChanges() {
+  const sections = [
+    ...state.baseData.sections.map((section) => ({...section, items: section.items.map((item) => ({...item}))})),
+    ...state.customSections.map((name) => ({name, kind: "reply", items: []}))
+  ];
+  const replySections = new Map(sections.filter((section) => section.kind === "reply").map((section) => [section.name, section]));
+  const originalReplies = sections.filter((section) => section.kind === "reply")
+    .flatMap((section) => section.items.map((item) => ({item, sectionName: section.name})));
+  for (const section of replySections.values()) section.items = [];
+  for (const {item, sectionName} of originalReplies) {
+    const change = state.replyChanges.overrides[item.id];
+    const target = replySections.get(change?.section) || replySections.get(sectionName);
+    target.items.push({
+      ...item,
+      audience: typeof change?.audience === "string" ? change.audience : item.audience,
+      title: typeof change?.title === "string" ? change.title : item.title,
+      body: typeof change?.body === "string" ? change.body : item.body
+    });
+  }
+  const ids = new Set(originalReplies.map(({item}) => item.id));
+  for (const item of state.replyChanges.added) {
+    if (!item || typeof item.id !== "string" || ids.has(item.id) || !replySections.has(item.section)) continue;
+    if (!["audience", "title", "body"].every((key) => typeof item[key] === "string")) continue;
+    ids.add(item.id);
+    replySections.get(item.section).items.push({id: item.id, audience: item.audience, title: item.title, body: item.body});
+  }
+  state.data = {...state.baseData, sections};
+  $("total-tabs").textContent = sections.length;
+  $("total-replies").textContent = sections.filter((section) => section.kind === "reply")
+    .reduce((total, section) => total + section.items.length, 0);
+}
+
+function openSectionDialog(trigger = document.activeElement) {
+  if (!state.data) return;
+  sectionDialogTrigger = trigger;
+  $("section-name").value = "";
+  $("section-error").hidden = true;
+  $("section-dialog").hidden = false;
+  document.body.classList.add("dialog-open");
+  $("section-name").focus();
+}
+
+function closeSectionDialog() {
+  $("section-dialog").hidden = true;
+  document.body.classList.remove("dialog-open");
+  if (sectionDialogTrigger?.isConnected) sectionDialogTrigger.focus();
+  sectionDialogTrigger = null;
+}
+
+function saveSectionForm(event) {
+  event.preventDefault();
+  const name = $("section-name").value.trim().replace(/\s+/g, " ");
+  const error = $("section-error");
+  if (!name) { error.textContent = "請輸入分類名稱"; error.hidden = false; return; }
+  if (state.data.sections.some((section) => normalize(section.name) === normalize(name))) {
+    error.textContent = "這個分類已存在，請換一個名稱";
+    error.hidden = false;
+    $("section-name").focus();
+    return;
+  }
+  const next = [...state.customSections, name];
+  try { localStorage.setItem(customSectionsKey, JSON.stringify(next)); }
+  catch (_) { error.textContent = "無法儲存分類，請檢查瀏覽器的網站資料設定"; error.hidden = false; return; }
+  state.customSections = next;
+  applyReplyChanges();
+  state.order = [name, ...state.order];
+  saveOrder();
+  state.section = name;
+  state.audience = "全部";
+  state.query = "";
+  $("search").value = "";
+  history.replaceState(null, "", `#${encodeURIComponent(name)}`);
+  closeSectionDialog();
+  renderNav();
+  render();
+  $("section-nav").scrollTo?.({left: 0, top: 0, behavior: "smooth"});
+  toast("分類已建立，可以新增回覆或移入現有回覆");
+}
+
+function openReplyDialog(item = null, sectionName = state.section, trigger = document.activeElement) {
+  if (!state.data) return;
+  replyDialogTrigger = trigger;
+  const select = $("reply-section");
+  select.replaceChildren();
+  for (const section of state.data.sections.filter((entry) => entry.kind === "reply")) {
+    const option = node("option", "", section.name);
+    option.value = section.name;
+    select.append(option);
+  }
+  $("reply-dialog").dataset.itemId = item?.id || "";
+  $("reply-dialog-title").textContent = item ? "編輯回覆" : "新增回覆";
+  $("reply-section").value = sectionName;
+  $("reply-audience").value = item?.audience || "房客";
+  $("reply-title").value = item?.title || "";
+  $("reply-body").value = item?.body || "";
+  $("reply-dialog").hidden = false;
+  document.body.classList.add("dialog-open");
+  $("reply-title").focus();
+}
+
+function closeReplyDialog() {
+  $("reply-dialog").hidden = true;
+  document.body.classList.remove("dialog-open");
+  if (replyDialogTrigger?.isConnected) replyDialogTrigger.focus();
+  else $("add-reply").focus();
+  replyDialogTrigger = null;
+}
+
+function saveReplyForm(event) {
+  event.preventDefault();
+  const sectionName = $("reply-section").value;
+  const section = state.data.sections.find((entry) => entry.name === sectionName && entry.kind === "reply");
+  const audience = $("reply-audience").value;
+  const title = $("reply-title").value.trim();
+  const body = $("reply-body").value.trim();
+  if (!section || !["房東", "房客", "房東／房客"].includes(audience)) return;
+  if (!title || !body) {
+    toast("請填寫情境標題與回覆內容");
+    $(title ? "reply-body" : "reply-title").focus();
+    return;
+  }
+
+  const id = $("reply-dialog").dataset.itemId;
+  const previousSection = state.data.sections.find((entry) => entry.kind === "reply" && entry.items.some((item) => item.id === id));
+  const previous = state.replyChanges;
+  const next = {overrides: {...previous.overrides}, added: [...previous.added]};
+  let savedId = id;
+  const addedIndex = next.added.findIndex((item) => item.id === id);
+  if (addedIndex >= 0) next.added[addedIndex] = {id, section: sectionName, audience, title, body};
+  else if (id) next.overrides[id] = {section: sectionName, audience, title, body};
+  else {
+    savedId = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    next.added.push({id: savedId, section: sectionName, audience, title, body});
+  }
+  try { localStorage.setItem(replyChangesKey, JSON.stringify(next)); }
+  catch (_) { toast("無法儲存文案，請檢查瀏覽器的網站資料設定"); return; }
+
+  state.replyChanges = next;
+  applyReplyChanges();
+  state.section = sectionName;
+  state.audience = "全部";
+  state.query = "";
+  $("search").value = "";
+  history.replaceState(null, "", `#${encodeURIComponent(sectionName)}`);
+  if (!id || previousSection?.name !== sectionName) {
+    state.itemOrders[sectionName] = [savedId, ...getItemOrder(section).filter((itemId) => itemId !== savedId)];
+    saveItemOrders();
+  }
+  closeReplyDialog();
+  renderNav();
+  render();
+  toast(id ? "回覆已更新" : "回覆已新增");
 }
 
 function currentSection() { return state.data.sections.find((section) => section.name === state.section); }
@@ -446,7 +630,7 @@ function searchableText(tag, className, value) {
   return element;
 }
 
-function replyCard(item, firstId) {
+function replyCard(item, firstId, sectionName) {
   const card = node("article", "card drag-entry");
   card.dataset.dragKey = item.id;
   const top = node("div", "card-top");
@@ -458,6 +642,11 @@ function replyCard(item, firstId) {
   top.append(searchableText("h3", "card-title", item.title), tools);
   card.append(top, searchableText("p", "card-body", item.body));
   const actions = node("div", "card-actions");
+  const edit = node("button", "edit-reply-button", "編輯");
+  edit.type = "button";
+  edit.setAttribute("aria-label", `編輯「${item.title}」`);
+  edit.addEventListener("click", () => openReplyDialog(item, sectionName, edit));
+  actions.append(edit);
   actions.appendChild(copyButton("複製回覆 ↗", item.body));
   card.appendChild(actions);
   return card;
@@ -584,7 +773,7 @@ function renderSearchResults() {
     const results = node("div", "search-group-results");
     if (section.kind === "phone") renderPhones(items, results, null);
     else if (section.kind === "vendor") renderVendors(items, results, null);
-    else for (const item of items) results.append(replyCard(item, null));
+    else for (const item of items) results.append(replyCard(item, null, section.name));
     group.append(results);
     cards.append(group);
   }
@@ -608,8 +797,9 @@ function render() {
   $("section-title").textContent = searching ? "全部分頁的搜尋結果" : section.name;
   $("section-kicker").textContent = searching ? "快速查找" : section.kind === "reply" ? "回覆範本" : "聯絡資訊";
   $("pin-section").hidden = searching || state.order[0] === section.name;
-  $("edit-items").hidden = searching;
-  $("item-drag-tip").hidden = searching;
+  $("add-reply").hidden = searching || section.kind !== "reply";
+  $("edit-items").hidden = searching || !section.items.length;
+  $("item-drag-tip").hidden = searching || !section.items.length;
   $("edit-items").textContent = section.kind === "reply" ? "調整回覆順序" : "調整項目順序";
   $("search").placeholder = "搜尋全部分頁的回覆或聯絡資訊…";
 
@@ -635,14 +825,16 @@ function render() {
   cards.replaceChildren();
   if (!items.length) {
     const empty = node("div", "empty");
-    empty.append(node("strong", "", "沒有找到符合的內容"), node("span", "", "換個關鍵字，或切換對象再試試。"));
+    if (section.kind === "reply" && !section.items.length) {
+      empty.append(node("strong", "", "這個分類還沒有回覆"), node("span", "", "按「＋ 新增回覆」建立，或到其他分類按「編輯」將回覆移進來。"));
+    } else empty.append(node("strong", "", "沒有找到符合的內容"), node("span", "", "換個關鍵字，或切換對象再試試。"));
     cards.append(empty);
     return;
   }
   if (section.kind === "phone") { renderPhones(items, cards, itemOrder[0]); return; }
   if (section.kind === "vendor") { renderVendors(items, cards, itemOrder[0]); return; }
   const fragment = document.createDocumentFragment();
-  for (const item of items) fragment.append(replyCard(item, itemOrder[0]));
+  for (const item of items) fragment.append(replyCard(item, itemOrder[0], section.name));
   cards.append(fragment);
 }
 
@@ -652,10 +844,11 @@ async function init() {
     $("shortcut").textContent = /Mac/i.test(platform) ? "⌘ K" : "Ctrl K";
     const response = await fetch("./data.json", {cache: "no-store"});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    state.data = await response.json();
+    state.baseData = await response.json();
+    state.customSections = loadCustomSections();
+    state.replyChanges = loadReplyChanges();
+    applyReplyChanges();
     $("source-link").href = state.data.sourceUrl;
-    $("total-replies").textContent = state.data.sections.filter((s) => s.kind === "reply").reduce((n, s) => n + s.items.length, 0);
-    $("total-tabs").textContent = state.data.sections.length;
     state.order = loadOrder();
     state.itemOrders = loadItemOrders();
     state.section = state.order[0];
@@ -670,6 +863,16 @@ async function init() {
 }
 
 $("search").addEventListener("input", (event) => { state.query = event.target.value; if (state.data) render(); });
+$("add-reply").addEventListener("click", (event) => openReplyDialog(null, state.section, event.currentTarget));
+$("add-section").addEventListener("click", (event) => openSectionDialog(event.currentTarget));
+$("section-form").addEventListener("submit", saveSectionForm);
+$("close-section").addEventListener("click", closeSectionDialog);
+$("cancel-section").addEventListener("click", closeSectionDialog);
+$("section-name").addEventListener("input", () => { $("section-error").hidden = true; });
+$("section-dialog").addEventListener("click", (event) => { if (event.target === $("section-dialog")) closeSectionDialog(); });
+$("reply-form").addEventListener("submit", saveReplyForm);
+$("close-reply").addEventListener("click", closeReplyDialog);
+$("cancel-reply").addEventListener("click", closeReplyDialog);
 $("edit-order").addEventListener("click", () => openSortDialog("sections"));
 $("pin-section").addEventListener("click", moveSectionToTop);
 $("edit-items").addEventListener("click", () => openSortDialog("items"));
@@ -687,6 +890,26 @@ $("reset-order").addEventListener("click", () => {
 });
 $("sort-dialog").addEventListener("click", (event) => { if (event.target === $("sort-dialog")) closeSortDialog(); });
 document.addEventListener("keydown", (event) => {
+  if (!$("section-dialog").hidden) {
+    if (event.key === "Escape") { event.preventDefault(); closeSectionDialog(); return; }
+    if (event.key === "Tab") {
+      const focusable = [...$("section-dialog").querySelectorAll("button,input")];
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    return;
+  }
+  if (!$("reply-dialog").hidden) {
+    if (event.key === "Escape") { event.preventDefault(); closeReplyDialog(); return; }
+    if (event.key === "Tab") {
+      const focusable = [...$("reply-dialog").querySelectorAll("button,input,select,textarea")].filter((element) => !element.hidden);
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    return;
+  }
   if (!$("sort-dialog").hidden) {
     if (event.key === "Escape") { closeSortDialog(); return; }
     if (event.key === "Tab") {

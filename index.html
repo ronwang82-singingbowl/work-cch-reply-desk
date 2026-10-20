@@ -20,6 +20,7 @@
         <div class="nav-group">
           <div class="nav-heading">
             <p class="nav-label">我的分頁</p>
+            <button id="add-section" class="add-section-button" type="button">＋ 新增分類</button>
             <button id="edit-order" class="order-button" type="button">調整順序</button>
           </div>
           <nav id="section-nav" class="nav-list" aria-label="分頁"></nav>
@@ -60,6 +61,7 @@
           </div>
           <div class="section-actions">
             <span class="result-count" id="result-count" aria-live="polite"></span>
+            <button id="add-reply" class="add-reply-button" type="button" hidden>＋ 新增回覆</button>
             <button id="edit-items" class="item-order-button" type="button">調整項目順序</button>
           </div>
         </div>
@@ -67,7 +69,7 @@
         <p id="item-drag-tip" class="item-drag-tip">按住項目上的 ⠿，拖到想要的位置後放開</p>
         <div class="cards" id="cards" aria-live="polite"><div class="loading">正在載入回覆…</div></div>
       </section>
-      <footer>目前顯示「新版回覆」表格的內容快照 · 修改表格後，網頁需重新更新</footer>
+      <footer>原始回覆來自「新版回覆」表格快照 · 在此新增的分類與文案儲存在目前瀏覽器</footer>
     </main>
   </div>
   <div id="sort-dialog" class="dialog-backdrop" hidden>
@@ -82,6 +84,46 @@
         <button id="reset-order" class="reset-button" type="button">恢復原順序</button>
         <button id="done-order" class="done-button" type="button">完成</button>
       </div>
+    </div>
+  </div>
+  <div id="section-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog section-dialog" role="dialog" aria-modal="true" aria-labelledby="section-dialog-title" aria-describedby="section-dialog-help">
+      <div class="dialog-head">
+        <div><p class="section-kicker">MY CATEGORY</p><h2 id="section-dialog-title">新增分類</h2></div>
+        <button id="close-section" class="dialog-close" type="button" aria-label="關閉新增分類視窗">×</button>
+      </div>
+      <p id="section-dialog-help" class="dialog-help">新增後會出現在分頁清單，也能把現有回覆移進來。分類只保存在目前瀏覽器。</p>
+      <form id="section-form">
+        <div class="reply-fields">
+          <label class="wide-field">分類名稱<input id="section-name" type="text" maxlength="40" required placeholder="例如：特殊情況" autocomplete="off"></label>
+          <p id="section-error" class="section-error wide-field" role="alert" hidden></p>
+        </div>
+        <div class="dialog-foot reply-foot">
+          <button id="cancel-section" class="reset-button" type="button">取消</button>
+          <button class="done-button" type="submit">建立分類</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="reply-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog reply-dialog" role="dialog" aria-modal="true" aria-labelledby="reply-dialog-title" aria-describedby="reply-dialog-help">
+      <div class="dialog-head">
+        <div><p class="section-kicker">MY REPLY</p><h2 id="reply-dialog-title">新增回覆</h2></div>
+        <button id="close-reply" class="dialog-close" type="button" aria-label="關閉編輯視窗">×</button>
+      </div>
+      <p id="reply-dialog-help" class="dialog-help">儲存後會立即顯示在網頁上。文案保存在目前瀏覽器，其他電腦不會自動同步。</p>
+      <form id="reply-form">
+        <div class="reply-fields">
+          <label>分類<select id="reply-section" required></select></label>
+          <label>對象<select id="reply-audience" required><option value="房東">房東</option><option value="房客">房客</option><option value="房東／房客">房東／房客</option></select></label>
+          <label class="wide-field">情境／標題<input id="reply-title" type="text" required placeholder="例如：詢問修繕進度"></label>
+          <label class="wide-field">回覆內容<textarea id="reply-body" rows="9" required placeholder="輸入可直接複製使用的完整回覆"></textarea></label>
+        </div>
+        <div class="dialog-foot reply-foot">
+          <button id="cancel-reply" class="reset-button" type="button">取消</button>
+          <button class="done-button" type="submit">儲存回覆</button>
+        </div>
+      </form>
     </div>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

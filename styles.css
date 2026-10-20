@@ -134,3 +134,29 @@ body.dialog-open{overflow:hidden}
 .contact-table tbody tr:hover td:first-child{background:#f8faf7}
 .contact-table tbody tr.departed td:first-child{background:#fff6f5}
 @media(max-width:650px){.main{padding-top:14px}.hero{padding:10px 0 16px}.hero h1{font-size:25px}.hero-description{font-size:12px}.workspace{padding-top:12px}.section-head{margin:16px 0 11px}.card{padding:16px}.card-body{font-size:14px;line-height:1.7}.search-group-heading h3{font-size:16px}}
+
+/* Reply editor keeps content changes separate from the published snapshot. */
+.nav-heading{gap:5px;margin-left:0;margin-right:0}
+.nav-heading .nav-label{white-space:nowrap;flex:none;margin:0}
+.add-section-button{border:1px solid #a8c4aa;border-radius:7px;background:#f6faf4;color:#315d3d;padding:5px 7px;text-align:center;font-size:11px;font-weight:800;white-space:nowrap}
+.add-section-button:hover{background:#e6f1e3;border-style:solid}
+.add-section-button:focus-visible{outline:3px solid #a5c48e;outline-offset:2px}
+.section-dialog{width:min(460px,100%)}
+.section-error{margin:0;color:#a03e36;font-size:12px;line-height:1.5}
+.section-error[hidden]{display:none}
+.add-reply-button{border:0;border-radius:9px;background:#294d38;color:#fff;padding:9px 13px;font-size:12px;font-weight:800;white-space:nowrap}
+.add-reply-button:hover{background:#376a4c}
+.edit-reply-button{border:1px solid #d1dfd1;border-radius:9px;background:#fff;color:#356149;padding:9px 14px;font-size:12px;font-weight:750;min-height:40px}
+.edit-reply-button:hover{background:#f0f6ed}
+.add-reply-button:focus-visible,.edit-reply-button:focus-visible,.reply-fields :focus-visible{outline:3px solid #a5c48e;outline-offset:2px}
+.reply-dialog{width:min(630px,100%)}
+.reply-dialog form{min-height:0;overflow:auto}
+.reply-fields{display:grid;grid-template-columns:1fr 1fr;gap:15px;padding:0 25px 18px}
+.reply-fields label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:750;color:#35513d}
+.reply-fields .wide-field{grid-column:1/-1}
+.reply-fields input,.reply-fields select,.reply-fields textarea{width:100%;border:1px solid #cfdcd0;border-radius:9px;background:#fff;color:#263a2d;padding:11px 12px;font-size:14px;font-weight:400;outline:0}
+.reply-fields textarea{min-height:170px;line-height:1.6;resize:vertical}
+.reply-fields input:focus,.reply-fields select:focus,.reply-fields textarea:focus{border-color:#77a383;box-shadow:0 0 0 3px #dcecd8}
+.reply-fields input::placeholder,.reply-fields textarea::placeholder{color:#839489}
+.reply-foot{background:#f9faf7}
+@media(max-width:650px){.section-actions{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;gap:8px}.section-actions .result-count{width:100%;text-align:right}.add-reply-button,.item-order-button{font-size:11px;padding:8px}.card-actions{justify-content:space-between}.reply-fields{grid-template-columns:1fr;padding:0 18px 14px;gap:12px}.reply-dialog form{overflow:auto}.reply-fields textarea{min-height:190px}}
