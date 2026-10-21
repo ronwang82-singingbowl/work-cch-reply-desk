@@ -1,16 +1,21 @@
-const state = {data: null, baseData: null, customSections: [], replyChanges: {overrides: {}, added: []}, section: "常用", audience: "全部", query: "", order: [], itemOrders: {}};
+const state = {data: null, baseData: null, customSections: [], replyChanges: {overrides: {}, added: []}, phoneChanges: {}, deletedItems: [], section: "常用", audience: "全部", query: "", order: [], itemOrders: {}};
 const $ = (id) => document.getElementById(id);
 const normalize = (value) => String(value || "").toLocaleLowerCase().replace(/\s+/g, "");
 const orderKey = "reply-desk-section-order-v1";
 const itemOrderKey = "reply-desk-item-order-v1";
 const replyChangesKey = "reply-desk-reply-changes-v1";
 const customSectionsKey = "reply-desk-custom-sections-v1";
+const phoneChangesKey = "reply-desk-phone-changes-v1";
+const deletedItemsKey = "reply-desk-deleted-items-v1";
 let toastTimer;
 let sortDrag = null;
 let inlineDrag = null;
 let sortMode = "sections";
 let replyDialogTrigger = null;
 let sectionDialogTrigger = null;
+let phoneDialogTrigger = null;
+let deleteDialogTrigger = null;
+let deleteTarget = null;
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -110,6 +115,20 @@ function loadCustomSections() {
   } catch (_) { return []; }
 }
 
+function loadPhoneChanges() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(phoneChangesKey) || "{}");
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  } catch (_) { return {}; }
+}
+
+function loadDeletedItems() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(deletedItemsKey) || "[]");
+    return Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [];
+  } catch (_) { return []; }
+}
+
 function applyReplyChanges() {
   const sections = [
     ...state.baseData.sections.map((section) => ({...section, items: section.items.map((item) => ({...item}))})),
@@ -135,6 +154,17 @@ function applyReplyChanges() {
     if (!["audience", "title", "body"].every((key) => typeof item[key] === "string")) continue;
     ids.add(item.id);
     replySections.get(item.section).items.push({id: item.id, audience: item.audience, title: item.title, body: item.body});
+  }
+  const deleted = new Set(state.deletedItems);
+  for (const section of sections) {
+    if (section.kind === "phone") {
+      section.items = section.items.map((item) => {
+        const change = state.phoneChanges[item.id];
+        if (!change || !["group", "name", "surname", "phone", "note"].every((key) => typeof change[key] === "string")) return item;
+        return {...item, ...change};
+      });
+    }
+    section.items = section.items.filter((item) => !deleted.has(item.id));
   }
   state.data = {...state.baseData, sections};
   $("total-tabs").textContent = sections.length;
@@ -262,6 +292,80 @@ function saveReplyForm(event) {
   renderNav();
   render();
   toast(id ? "回覆已更新" : "回覆已新增");
+}
+
+function openPhoneDialog(item, trigger) {
+  phoneDialogTrigger = trigger;
+  $("phone-dialog").dataset.itemId = item.id;
+  for (const field of ["group", "name", "surname", "phone", "note"]) {
+    $(field === "phone" ? "phone-number" : `phone-${field}`).value = item[field] || "";
+  }
+  $("phone-dialog").hidden = false;
+  document.body.classList.add("dialog-open");
+  $("phone-name").focus();
+}
+
+function closePhoneDialog() {
+  $("phone-dialog").hidden = true;
+  document.body.classList.remove("dialog-open");
+  if (phoneDialogTrigger?.isConnected) phoneDialogTrigger.focus();
+  phoneDialogTrigger = null;
+}
+
+function savePhoneForm(event) {
+  event.preventDefault();
+  const id = $("phone-dialog").dataset.itemId;
+  const changes = {};
+  for (const field of ["group", "name", "surname", "phone", "note"]) {
+    changes[field] = $(field === "phone" ? "phone-number" : `phone-${field}`).value.trim();
+  }
+  if (!changes.name || !changes.group) return;
+  const next = {...state.phoneChanges, [id]: changes};
+  try { localStorage.setItem(phoneChangesKey, JSON.stringify(next)); }
+  catch (_) { toast("無法儲存電話資料，請檢查瀏覽器的網站資料設定"); return; }
+  state.phoneChanges = next;
+  closePhoneDialog();
+  applyReplyChanges();
+  renderNav();
+  render();
+  toast("電話資料已更新");
+}
+
+function deleteButton(item, label) {
+  const button = node("button", "delete-item-button", "刪除");
+  button.type = "button";
+  button.setAttribute("aria-label", `刪除「${label}」`);
+  button.addEventListener("click", () => {
+    deleteDialogTrigger = button;
+    deleteTarget = item.id;
+    $("delete-item-name").textContent = `「${label}」`;
+    $("delete-dialog").hidden = false;
+    document.body.classList.add("dialog-open");
+    $("cancel-delete").focus();
+  });
+  return button;
+}
+
+function closeDeleteDialog(restoreFocus = true) {
+  $("delete-dialog").hidden = true;
+  document.body.classList.remove("dialog-open");
+  if (restoreFocus && deleteDialogTrigger?.isConnected) deleteDialogTrigger.focus();
+  deleteDialogTrigger = null;
+  deleteTarget = null;
+}
+
+function confirmDelete() {
+  if (!deleteTarget) return;
+  const next = [...new Set([...state.deletedItems, deleteTarget])];
+  try { localStorage.setItem(deletedItemsKey, JSON.stringify(next)); }
+  catch (_) { toast("無法刪除項目，請檢查瀏覽器的網站資料設定"); return; }
+  state.deletedItems = next;
+  closeDeleteDialog(false);
+  applyReplyChanges();
+  renderNav();
+  render();
+  $("section-title").focus();
+  toast("項目已刪除");
 }
 
 function currentSection() { return state.data.sections.find((section) => section.name === state.section); }
@@ -633,10 +737,14 @@ function searchableText(tag, className, value) {
 function replyCard(item, firstId, sectionName) {
   const card = node("article", "card drag-entry");
   card.dataset.dragKey = item.id;
+  if (item.audience === "房東") card.classList.add("card-landlord");
+  else if (item.audience === "房客") card.classList.add("card-tenant");
   const top = node("div", "card-top");
   const tools = node("div", "card-tools");
   if (firstId !== null) tools.append(inlineHandle(item.id, item.title, card, "items"));
-  tools.append(node("span", "badge", item.audience || "回覆"));
+  if (item.audience?.includes("房東")) tools.append(node("span", "badge badge-landlord", "房東"));
+  if (item.audience?.includes("房客")) tools.append(node("span", "badge badge-tenant", "房客"));
+  if (!item.audience) tools.append(node("span", "badge", "回覆"));
   const pin = firstId === null ? null : pinButton(item, firstId);
   if (pin) tools.append(pin);
   top.append(searchableText("h3", "card-title", item.title), tools);
@@ -646,7 +754,7 @@ function replyCard(item, firstId, sectionName) {
   edit.type = "button";
   edit.setAttribute("aria-label", `編輯「${item.title}」`);
   edit.addEventListener("click", () => openReplyDialog(item, sectionName, edit));
-  actions.append(edit);
+  actions.append(edit, deleteButton(item, item.title));
   actions.appendChild(copyButton("複製回覆 ↗", item.body));
   card.appendChild(actions);
   return card;
@@ -666,13 +774,13 @@ function table(headers, label) {
 }
 
 function renderPhones(items, container, firstId) {
-  const {wrap, body} = table(["姓名", "電話", "稱呼", "備註"], "電話名單");
+  const {wrap, body} = table(["姓名", "電話", "稱呼", "備註", "操作"], "電話名單");
   let previousGroup = "";
   for (const item of items) {
     if (item.group !== previousGroup) {
       const groupRow = node("tr", "group-row");
       const heading = node("th", "", item.group || "其他");
-      heading.colSpan = 4;
+      heading.colSpan = 5;
       groupRow.append(heading);
       body.append(groupRow);
       previousGroup = item.group;
@@ -699,6 +807,13 @@ function renderPhones(items, container, firstId) {
     if (item.note && item.note !== "離職") noteCell.append(node("span", "", item.note));
     if (!noteCell.hasChildNodes()) noteCell.append(node("span", "muted", "—"));
     row.append(noteCell);
+    const actions = node("td", "action-cell");
+    const edit = node("button", "edit-reply-button", "編輯");
+    edit.type = "button";
+    edit.setAttribute("aria-label", `編輯「${item.name}」的電話資料`);
+    edit.addEventListener("click", () => openPhoneDialog(item, edit));
+    actions.append(edit, deleteButton(item, item.name));
+    row.append(actions);
     body.append(row);
   }
   container.append(wrap);
@@ -716,7 +831,7 @@ function renderVendors(items, container, firstId) {
       name.append(node("span", "", "派工告知文字"));
       row.append(name, node("td", "", "—"), node("td", "detail-cell", item.title));
       const action = node("td", "action-cell");
-      action.append(copyButton("複製文字", item.title));
+      action.append(copyButton("複製文字", item.title), deleteButton(item, "派工告知文字"));
       const pin = firstId === null ? null : pinButton(item, firstId);
       if (pin) action.append(pin);
       row.append(action);
@@ -735,6 +850,7 @@ function renderVendors(items, container, firstId) {
     }
     const action = node("td", "action-cell");
     action.append(copyButton("複製資訊", [item.title, ...item.fields].join("\n")));
+    action.append(deleteButton(item, item.title));
     const pin = firstId === null ? null : pinButton(item, firstId);
     if (pin) action.append(pin);
     row.append(action);
@@ -807,7 +923,8 @@ function render() {
   filters.replaceChildren();
   if (!searching && section.kind === "reply") {
     for (const audience of ["全部", "房東", "房客"]) {
-      const button = node("button", `filter${state.audience === audience ? " active" : ""}`, audience);
+      const audienceClass = audience === "房東" ? " filter-landlord" : audience === "房客" ? " filter-tenant" : "";
+      const button = node("button", `filter${audienceClass}${state.audience === audience ? " active" : ""}`, audience);
       button.type = "button";
       button.setAttribute("aria-pressed", String(state.audience === audience));
       button.addEventListener("click", () => { state.audience = audience; render(); });
@@ -847,6 +964,8 @@ async function init() {
     state.baseData = await response.json();
     state.customSections = loadCustomSections();
     state.replyChanges = loadReplyChanges();
+    state.phoneChanges = loadPhoneChanges();
+    state.deletedItems = loadDeletedItems();
     applyReplyChanges();
     $("source-link").href = state.data.sourceUrl;
     state.order = loadOrder();
@@ -873,6 +992,14 @@ $("section-dialog").addEventListener("click", (event) => { if (event.target === 
 $("reply-form").addEventListener("submit", saveReplyForm);
 $("close-reply").addEventListener("click", closeReplyDialog);
 $("cancel-reply").addEventListener("click", closeReplyDialog);
+$("phone-form").addEventListener("submit", savePhoneForm);
+$("close-phone").addEventListener("click", closePhoneDialog);
+$("cancel-phone").addEventListener("click", closePhoneDialog);
+$("phone-dialog").addEventListener("click", (event) => { if (event.target === $("phone-dialog")) closePhoneDialog(); });
+$("cancel-delete").addEventListener("click", () => closeDeleteDialog());
+$("close-delete").addEventListener("click", () => closeDeleteDialog());
+$("confirm-delete").addEventListener("click", confirmDelete);
+$("delete-dialog").addEventListener("click", (event) => { if (event.target === $("delete-dialog")) closeDeleteDialog(); });
 $("edit-order").addEventListener("click", () => openSortDialog("sections"));
 $("pin-section").addEventListener("click", moveSectionToTop);
 $("edit-items").addEventListener("click", () => openSortDialog("items"));
@@ -890,6 +1017,26 @@ $("reset-order").addEventListener("click", () => {
 });
 $("sort-dialog").addEventListener("click", (event) => { if (event.target === $("sort-dialog")) closeSortDialog(); });
 document.addEventListener("keydown", (event) => {
+  if (!$("delete-dialog").hidden) {
+    if (event.key === "Escape") { event.preventDefault(); closeDeleteDialog(); return; }
+    if (event.key === "Tab") {
+      const focusable = [...$("delete-dialog").querySelectorAll("button")];
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    return;
+  }
+  if (!$("phone-dialog").hidden) {
+    if (event.key === "Escape") { event.preventDefault(); closePhoneDialog(); return; }
+    if (event.key === "Tab") {
+      const focusable = [...$("phone-dialog").querySelectorAll("button,input,textarea")];
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    return;
+  }
   if (!$("section-dialog").hidden) {
     if (event.key === "Escape") { event.preventDefault(); closeSectionDialog(); return; }
     if (event.key === "Tab") {

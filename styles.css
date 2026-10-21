@@ -160,3 +160,28 @@ body.dialog-open{overflow:hidden}
 .reply-fields input::placeholder,.reply-fields textarea::placeholder{color:#839489}
 .reply-foot{background:#f9faf7}
 @media(max-width:650px){.section-actions{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;gap:8px}.section-actions .result-count{width:100%;text-align:right}.add-reply-button,.item-order-button{font-size:11px;padding:8px}.card-actions{justify-content:space-between}.reply-fields{grid-template-columns:1fr;padding:0 18px 14px;gap:12px}.reply-dialog form{overflow:auto}.reply-fields textarea{min-height:190px}}
+
+/* Editing contacts and deleting individual entries. */
+.delete-item-button{border:1px solid #e9cccc;border-radius:9px;background:#fff;color:#a33d3d;padding:9px 12px;font-size:12px;font-weight:750;min-height:40px}
+.delete-item-button:hover{background:#fff1f0;border-color:#dfa9a4}
+.delete-item-button:focus-visible,.confirm-delete-button:focus-visible{outline:3px solid #e4a3a0;outline-offset:2px}
+.contact-table .action-cell{min-width:135px}
+.contact-table .action-cell .edit-reply-button,.contact-table .action-cell .delete-item-button{min-height:30px;padding:5px 8px;font-size:11px;margin-left:5px}
+.contact-table .action-cell .copy-button{margin-left:5px}
+.confirm-dialog{width:min(440px,100%)}
+.confirm-dialog .dialog-help{overflow-wrap:anywhere;font-size:14px;color:#405045;margin-top:18px;margin-bottom:20px}
+.confirm-delete-button{border:0;border-radius:9px;background:#aa3d3b;color:#fff;padding:9px 17px;font-size:12px;font-weight:800}
+.confirm-delete-button:hover{background:#8e302e}
+
+/* Audience colors also appear on filters, so the same meaning stays consistent. */
+.card.card-landlord{border-left:3px solid #c9834d}
+.card.card-tenant{border-left:3px solid #5c9ab8}
+.badge{font-weight:800}
+.badge-landlord{color:#87451f;background:#fff0df;border:1px solid #ebc69f}
+.badge-tenant{color:#215d7a;background:#e7f4fa;border:1px solid #b7d7e7}
+.filter-landlord{color:#87451f;border-color:#ebc69f;background:#fff9f2}
+.filter-landlord:hover{background:#fff0df}
+.filter-landlord.active{color:#fff;background:#914d27;border-color:#914d27}
+.filter-tenant{color:#215d7a;border-color:#b7d7e7;background:#f4fafe}
+.filter-tenant:hover{background:#e7f4fa}
+.filter-tenant.active{color:#fff;background:#286783;border-color:#286783}

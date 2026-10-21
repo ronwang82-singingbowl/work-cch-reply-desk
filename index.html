@@ -69,7 +69,7 @@
         <p id="item-drag-tip" class="item-drag-tip">按住項目上的 ⠿，拖到想要的位置後放開</p>
         <div class="cards" id="cards" aria-live="polite"><div class="loading">正在載入回覆…</div></div>
       </section>
-      <footer>原始回覆來自「新版回覆」表格快照 · 在此新增的分類與文案儲存在目前瀏覽器</footer>
+      <footer>原始資料來自表格快照 · 在此編輯或刪除的內容儲存在目前瀏覽器</footer>
     </main>
   </div>
   <div id="sort-dialog" class="dialog-backdrop" hidden>
@@ -124,6 +124,41 @@
           <button class="done-button" type="submit">儲存回覆</button>
         </div>
       </form>
+    </div>
+  </div>
+  <div id="phone-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog reply-dialog" role="dialog" aria-modal="true" aria-labelledby="phone-dialog-title" aria-describedby="phone-dialog-help">
+      <div class="dialog-head">
+        <div><p class="section-kicker">PHONE BOOK</p><h2 id="phone-dialog-title">編輯電話資料</h2></div>
+        <button id="close-phone" class="dialog-close" type="button" aria-label="關閉電話編輯視窗">×</button>
+      </div>
+      <p id="phone-dialog-help" class="dialog-help">修改只保存在目前瀏覽器，其他電腦不會自動同步。</p>
+      <form id="phone-form">
+        <div class="reply-fields">
+          <label>群組<input id="phone-group" type="text" maxlength="60" required></label>
+          <label>姓名<input id="phone-name" type="text" maxlength="60" required></label>
+          <label>電話<input id="phone-number" type="tel" maxlength="40"></label>
+          <label>稱呼<input id="phone-surname" type="text" maxlength="60"></label>
+          <label class="wide-field">備註<input id="phone-note" type="text" maxlength="160" placeholder="例如：離職"></label>
+        </div>
+        <div class="dialog-foot reply-foot">
+          <button id="cancel-phone" class="reset-button" type="button">取消</button>
+          <button class="done-button" type="submit">儲存修改</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="delete-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-help">
+      <div class="dialog-head">
+        <div><p class="section-kicker">CONFIRM DELETE</p><h2 id="delete-dialog-title">確定要刪除嗎？</h2></div>
+        <button id="close-delete" class="dialog-close" type="button" aria-label="取消刪除">×</button>
+      </div>
+      <p id="delete-dialog-help" class="dialog-help">即將刪除 <strong id="delete-item-name"></strong>。按「確認刪除」後，此項目會從目前瀏覽器的清單中移除。</p>
+      <div class="dialog-foot reply-foot">
+        <button id="cancel-delete" class="reset-button" type="button">保留這筆</button>
+        <button id="confirm-delete" class="confirm-delete-button" type="button">確認刪除</button>
+      </div>
     </div>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
